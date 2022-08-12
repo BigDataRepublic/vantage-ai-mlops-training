@@ -5,7 +5,7 @@ from datetime import timedelta, datetime
 
 MODEL_PATH = "/mnt/ml/model.joblib"
 IMAGE = "ml-vantage:latest"
-NAMESPACE = "default"
+NAMESPACE = "airflow"
 VOLUME = V1Volume(
     name="ml",
     persistent_volume_claim=V1PersistentVolumeClaimVolumeSource(
