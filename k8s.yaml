@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ml
+  namespace: default
+spec:
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: hostpath
+  accessModes:
+    - ReadWriteMany
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ml-pvc-inspector
+  namespace: default
+  labels:
+    app: ml-pvc-inspector
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ml-pvc-inspector
+  template:
+    metadata:
+      labels:
+        app: ml-pvc-inspector
+    spec:
+      containers:
+        - name: ml-pvc-inspector
+          image: busybox
+          args:
+            - sleep
+            - infinity
+          volumeMounts:
+            - mountPath: /mnt/ml
+              name: ml
+      volumes:
+        - name: ml
+          persistentVolumeClaim:
+            claimName: ml
