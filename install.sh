@@ -10,4 +10,4 @@ helm upgrade --install airflow apache-airflow/airflow \
   --set images.airflow.repository=airflow-vantage \
   --set images.airflow.tag=latest
 
-kubectl apply -f pvc.yaml
+kubectl apply -f k8s.yaml

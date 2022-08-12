@@ -2,6 +2,9 @@
 
 ## 1. Installation
 
+Make sure you have Helm and a local Kubernetes instance running. 
+Then, run:
+
 ```bash
 ./install.sh
 ```
