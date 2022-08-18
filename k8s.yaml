@@ -1,3 +1,7 @@
+#########################################
+################ Airflow ################
+#########################################
+---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -41,3 +45,167 @@ spec:
         - name: ml
           persistentVolumeClaim:
             claimName: ml
+#########################################
+################ MLflow #################
+#########################################
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mlflow
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: s3
+  namespace: mlflow
+  labels:
+    app: s3
+spec:
+  serviceName: s3
+  replicas: 1
+  selector:
+    matchLabels:
+      app: s3
+  template:
+    metadata:
+      labels:
+        app: s3
+    spec:
+      containers:
+        - name: s3
+          image: adobe/s3mock
+          ports:
+            - containerPort: 9090
+          env:
+            - name: initialBuckets
+              value: test-bucket
+            - name: root
+              value: /mnt/artifacts
+            - name: retainFilesOnExit
+              value: "true"
+          volumeMounts:
+            - mountPath: /mnt/artifacts
+              name: artifacts
+  volumeClaimTemplates:
+    - metadata:
+         name: artifacts
+      spec:
+        resources:
+          requests:
+            storage: 10Gi
+        storageClassName: hostpath
+        accessModes:
+          - ReadWriteMany
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: s3
+  namespace: mlflow
+spec:
+  ports:
+    - port: 9000
+      targetPort: 9090
+  selector:
+    app: s3
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mlflow
+  namespace: mlflow
+  labels:
+    app: mlflow
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mlflow
+  template:
+    metadata:
+      labels:
+        app: mlflow
+    spec:
+      containers:
+        - name: mlflow
+          image: python:slim
+          args:
+            - /bin/sh
+            - -c
+            - pip install mlflow psycopg2-binary boto3 && mlflow server --host 0.0.0.0 --backend-store-uri postgresql://postgres:postgres@db:5432 --default-artifact-root s3://test-bucket
+          ports:
+            - containerPort: 5000
+          env:
+            - name: MLFLOW_S3_ENDPOINT_URL
+              value: http://s3:9000
+            - name: AWS_ACCESS_KEY_ID
+              value: AKIAIOSFODNN7EXAMPLE
+            - name: AWS_SECRET_ACCESS_KEY
+              value: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mlflow
+  namespace: mlflow
+spec:
+  ports:
+    - port: 5000
+  selector:
+    app: mlflow
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: db
+  namespace: mlflow
+  labels:
+    app: db
+spec:
+  serviceName: mlflow
+  replicas: 1
+  selector:
+    matchLabels:
+      app: db
+  template:
+    metadata:
+      labels:
+        app: db
+    spec:
+      containers:
+        - name: db
+          image: postgres
+          env:
+            - name: POSTGRES_PASSWORD
+              value: postgres
+            - name: POSTGRES_DB
+              value: mlflow
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - mountPath: /var/lib/postgresql/data
+              name: db
+  volumeClaimTemplates:
+    - metadata:
+        name: db
+      spec:
+        resources:
+          requests:
+            storage: 1Gi
+        storageClassName: hostpath
+        accessModes:
+          - ReadWriteMany
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+  namespace: mlflow
+spec:
+  ports:
+    - port: 5432
+  selector:
+    app: db
